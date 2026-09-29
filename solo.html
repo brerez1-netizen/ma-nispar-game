@@ -60,6 +60,8 @@
     padding: 7px 14px; font: inherit; font-size: .88rem; color: var(--ink); cursor: pointer;
   }
   .picks button.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .picks button.zero { border-style: dashed; color: var(--dim); }
+  .picks button.zero.on { border-style: solid; border-color: var(--accent); color: var(--accent); font-weight: 700; }
   .picks button:hover:not([disabled]), .picks button:focus-visible { border-color: var(--accent); outline: none; }
   .picks button[disabled] { cursor: default; opacity: .8; }
 
@@ -122,11 +124,12 @@ const N = gd.ROUNDS.length;
 
 let idx = 0;
 let picks = gd.ROUNDS.map(() => []);   // מה סומן בכל סבב
+let zeros = gd.ROUNDS.map(() => false); // האם נבחר במפורש "לא נספר בכלל"
 let results = [];                      // { correct } לכל סבב, והאחרון לסיום
 let finaleAns = null;
 
 function save() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ idx, picks, results, finaleAns })); }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ idx, picks, zeros, results, finaleAns })); }
   catch (e) { /* גלישה פרטית */ }
 }
 function load() {
@@ -134,6 +137,7 @@ function load() {
     const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     if (typeof s.idx === 'number') idx = s.idx;
     if (Array.isArray(s.picks)) picks = s.picks;
+    if (Array.isArray(s.zeros)) zeros = s.zeros;
     if (Array.isArray(s.results)) results = s.results;
     if (s.finaleAns) finaleAns = s.finaleAns;
   } catch (e) { /* נתונים פגומים */ }
@@ -179,7 +183,10 @@ function roundHtml() {
     '<li><button class="' + (on.includes(id) ? 'on' : '') + '" data-zone="' + id + '" ' +
     (res ? 'disabled' : '') + ' aria-pressed="' + on.includes(id) + '">' +
     (on.includes(id) ? '✓ ' : '') + esc(fl.ZONES[id].label) + ' · ' + fl.areaOf(id) + ' מ"ר' +
-    '</button></li>').join('');
+    '</button></li>').join('') +
+    '<li><button class="zero ' + (zeros[idx] ? 'on' : '') + '" data-zero="1" ' +
+      (res ? 'disabled' : '') + ' aria-pressed="' + !!zeros[idx] + '">' +
+      (zeros[idx] ? '✓ ' : '') + 'שום דבר מאלה לא נספר · 0 מ"ר</button></li>';
 
   const fb = res
     ? '<div class="feedback">' +
@@ -190,7 +197,8 @@ function roundHtml() {
         '<div class="actions"><button class="action" id="next">' +
           (idx === N - 1 ? 'לסיום' : 'לסבב הבא') + '</button>' + backBtn() + '</div>' +
       '</div>'
-    : '<div class="actions"><button class="action" id="check">בדקו</button>' +
+    : '<div class="actions"><button class="action" id="check" ' +
+        ((on.length || zeros[idx]) ? '' : 'disabled') + '>בדקו</button>' +
       '<button class="ghost" id="clear">לנקות סימון</button>' + backBtn() + '</div>';
 
   return '<div class="card">' +
@@ -258,6 +266,14 @@ function render() {
       const id = z.dataset.zone;
       const cur = picks[idx] || [];
       picks[idx] = cur.includes(id) ? cur.filter((v) => v !== id) : cur.concat([id]);
+      if (picks[idx].length) zeros[idx] = false;
+      save(); render();
+    });
+  });
+  el.querySelectorAll('[data-zero]:not([disabled])').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      zeros[idx] = !zeros[idx];
+      if (zeros[idx]) picks[idx] = [];
       save(); render();
     });
   });
@@ -267,7 +283,7 @@ function render() {
     save(); render();
   });
   const clear = document.getElementById('clear');
-  if (clear) clear.addEventListener('click', () => { picks[idx] = []; save(); render(); });
+  if (clear) clear.addEventListener('click', () => { picks[idx] = []; zeros[idx] = false; save(); render(); });
   const back = document.getElementById('back');
   if (back) back.addEventListener('click', () => {
     idx = Math.max(0, idx - 1);
@@ -286,7 +302,8 @@ function render() {
   });
   const again = document.getElementById('again');
   if (again) again.addEventListener('click', () => {
-    idx = 0; picks = gd.ROUNDS.map(() => []); results = []; finaleAns = null;
+    idx = 0; picks = gd.ROUNDS.map(() => []); zeros = gd.ROUNDS.map(() => false);
+    results = []; finaleAns = null;
     save(); render(); window.scrollTo({ top: 0 });
   });
 }
