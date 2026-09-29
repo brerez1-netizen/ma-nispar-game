@@ -1,62 +1,65 @@
-# רקע תלת-מימדי לתוכנית, שיעור 17
+# תמונת התוכנית, שיעור 17
 
-תמונת הרקע נוצרת **מתוך** שכבת הבסיס הווקטורית של `js/flat.js`, ולא מפרומפט טקסט
-בלבד. הסיבה: אזורי הסימון במשחק יושבים על קואורדינטות מדויקות, ואם הרקע יצויר
-מאפס הוא לא יתיישר איתם והסימון ייראה עקום.
+**הסדר התהפך ב-29.9.2026.** קודם נבנית התמונה, ואחר כך הגיאומטריה של המשחק נמדדת
+ממנה. הניסיון ההפוך נכשל במדידה: שלחנו למודל את התוכנית המדויקת של המשחק וביקשנו
+רק לצבוע אותה מחדש כרינדור, והוא החזיר דירה רחבה ב-28% וגבוהה ב-45%, עם קיר פנימי
+שזז, קיר חוץ דרומי שנעלם וממ"ד שתפח. מודל תמונה מתכנן מחדש במקום לצבוע מחדש.
 
-לכן המבט חייב להיות **אורתוגרפי מלמעלה, בלי הטיה ובלי פרספקטיבה**. התלת מימד מגיע
-מעובי הקירות, מהצללה, מריצוף ומריהוט, ולא מזווית מצלמה. ככה כל קיר נשאר במקומו
-והתמונה נשארת מיפוי 1:1 של התוכנית.
+לכן המודל חופשי לתכנן, ואנחנו מודדים אחריו. `tools/calibrate.py` עושה את זה.
 
-## איך להריץ
+## מה חייב להתקיים בתמונה, אחרת אי אפשר למדוד אותה
 
-```
-python tools/render-base.py          # מצלם את שכבת הבסיס מ-base.html
-python tools/gen.py edit flat-3d --from img/base-plan.png --size 1024x1024
-python tools/gen.py diff img/base-plan.png img/raw/flat-3d.png
-```
+1. **מבט אורתוגרפי מלמעלה, בלי הטיה ובלי פרספקטיבה.** אם המצלמה מוטה, ראש הקיר
+   ובסיסו אינם באותו מקום, ואז אין תשובה לשאלה איפה הקיר עובר.
+2. **דירה מלבנית, קירות מקבילים לשולי התמונה.**
+3. **הממ"ד הוא חדר אחד**, מלבני, מוקף קירות בטון בעובי אחיד, עם דלת פלדה אחת.
+   בסבב השני נמדד שטחו, ולכן הוא חייב להיות חלל יחיד ולא מבנה מקונן.
+4. **עובי אחיד לכל סוג קיר**: חוץ עבה, פנים דק, בטון הממ"ד ביניהם.
+5. **בלי טקסט, בלי מספרים, בלי חיצים ובלי שמות חדרים.**
 
-## STYLE derived
+## הכיול
 
-```
-This is an architectural floor plan. Re-render it as a realistic top-down
-architectural visualization, seen from **straight above at a perfectly orthographic
-angle**: no perspective, no tilt, no vanishing point, no camera rotation. The
-viewpoint looks straight down at the floor.
+הסקאלה נקבעת כך ששטח הממ"ד יוצא **9.0 מ"ר בדיוק**, המינימום שתקנות פיקוד העורף
+דורשות. כל שאר המידות נגזרות מזה, כולל עובי קיר החוץ. הסבב הראשון מנוסח לפי מה
+שיוצא: 25 הס"מ הראשונים נספרים, מה שביניהם ל-50 פטור, ומה שמעל 50 נספר כשטח
+שירות. כל עובי בין 25 ל-60 ס"מ נותן סבב תקף.
 
-Every wall must stay exactly where it is, at exactly the same thickness and the same
-pixel position. Do not move, straighten, thicken, thin, merge or delete a single wall.
-Do not change the outline of any room. The image must overlay the original plan
-perfectly.
-
-The sense of depth comes only from material and light: soft ambient shadow along the
-base of each wall, a subtle highlight on the top surface of each wall, and real floor
-materials seen from above.
-```
-
-### flat-3d | style=derived
+## הפרומפט
 
 ```
-Render the rooms with these materials, all seen from directly above:
+A realistic architectural floor plan visualization of a single apartment, seen from
+**straight above at a perfectly orthographic angle**: the camera looks straight down,
+with no tilt, no perspective and no vanishing point. Wall tops and wall bases sit
+exactly on top of each other. This is a rendered plan, not a dollhouse photo.
 
-- The large upper-left room is a living room and kitchen: light oak plank flooring,
-  a sofa with a rug, a dining table with chairs, and a kitchen counter along the top
-  wall.
-- The two rooms on the right are bedrooms: the same oak flooring, a double bed in the
-  upper one, a single bed and a desk in the lower one.
-- The narrow room in the lower middle is a bathroom: grey stone tiles, a shower tray,
-  a toilet and a basin.
-- The room left of it is a corridor: the same grey tiles, empty.
-- The heavily walled room at the lower right is a protected room: bare grey concrete
-  floor, one small steel door in its wall, no furniture.
-- The two areas along the bottom edge are an open balcony with pale outdoor tiles and
-  two chairs, and an adjoining stair shaft shown as bare concrete steps.
+The apartment is one clean rectangle, its walls parallel to the edges of the image,
+centred with a small white margin around it.
 
-Walls: the thick outer wall is rendered as stone-clad masonry, the thin inner walls as
-plastered partitions, and the very thick dark walls of the protected room as raw
-reinforced concrete. Keep all three thicknesses exactly as they are in the source.
+Rooms, arranged so that the whole rectangle is used and every room is a plain
+rectangle:
+- A large living room and kitchen along one long side: oak plank floor, a sofa with a
+  rug, a dining table with four chairs, and a kitchen counter against the outer wall.
+- Two bedrooms next to each other: the same oak floor, a double bed in one, a single
+  bed and a desk in the other.
+- A bathroom: grey stone tiles, a shower tray, a toilet and a basin.
+- A corridor connecting them, same grey tiles, empty.
+- A protected room (a residential safe room): **one single rectangular room**, roughly
+  as wide as it is deep, with a bare concrete floor, surrounded on all four sides by
+  reinforced concrete walls of one uniform thickness, clearly thicker than the interior
+  partitions and clearly thinner than the room itself. One flat steel door in one wall.
+  No niches, no nested boxes, no second cavity.
+- A balcony along the outside of one wall: pale outdoor tiles, two chairs, open to the
+  air, no roof structure drawn over it.
+- A stair shaft just outside the apartment, showing plain concrete steps from above.
 
-Warm even daylight, soft shadows, muted natural palette, clean and uncluttered.
+Three wall thicknesses, each uniform along its whole length: a thick outer wall in
+stone-clad masonry, thin plastered interior partitions, and the medium concrete walls
+of the protected room.
+
+Warm even daylight from above, soft contact shadows at the foot of the walls, muted
+natural palette, clean and uncluttered.
+
+Square image, 1024 by 1024.
 
 No text, no words, no letters, no numbers, no dimension lines, no arrows, no room
 labels, no north arrow, no logos, no readable writing anywhere in the image.
