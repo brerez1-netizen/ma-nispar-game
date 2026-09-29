@@ -94,9 +94,17 @@ window.flat = (function () {
     }
     for (const id of active) {
       const z = ZONES[id];
-      const r = z.ring || z.rect || z.ring2[1];
-      const cx = (r[0] + r[2]) / 2, cy = (r[1] + r[3]) / 2;
-      const roomy = !z.ring2 && !z.ring;
+      // תווית של טבעת יושבת על הרצועה העליונה שלה. במרכז המלבן היא מרחפת
+      // באוויר, ושתי טבעות באותו סבב מתנגשות שם זו בזו.
+      const outerR = z.ring2 ? z.ring2[0] : z.rect;
+      const innerR = z.ring2 ? z.ring2[1] : (z.ring || null);
+      const r = innerR || z.rect;
+      // שתי טבעות באותו סבב חולקות את אותה רצועה עליונה, ולכן הן מתפזרות לרוחב
+      const rings = active.filter((k) => ZONES[k].ring2 || ZONES[k].ring);
+      const spot = rings.length > 1 ? (rings.indexOf(id) + 1) / (rings.length + 1) : 0.5;
+      const cx = innerR ? r[0] + (r[2] - r[0]) * spot : (r[0] + r[2]) / 2;
+      const cy = innerR ? (outerR[1] + innerR[1]) / 2 : (r[1] + r[3]) / 2;
+      const roomy = !innerR;
       const t = (s, dy, size, weight) =>
         '<tspan x="' + cx + '" dy="' + dy + '" font-size="' + size + '" font-weight="' + weight + '">' +
         s + '</tspan>';
