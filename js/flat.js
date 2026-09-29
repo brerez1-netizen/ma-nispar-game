@@ -87,19 +87,99 @@ window.flat = (function () {
   /** שכבת הבסיס: רצפה, שלושת סוגי הקיר, והמחיצות.
       זו גם התמונה שנשלחת למודל כדי שיהפוך אותה לתלת מימד, ולכן הגיאומטריה
       כאן זהה בדיוק לזו של אזורי הסימון. */
-  function baseLayer() {
-    const box = (r, fill) =>
-      '<rect x="' + x(r[0]) + '" y="' + y(r[1]) + '" width="' + m(r[2]) + '" height="' + m(r[3]) +
-      '" fill="' + fill + '"/>';
-    const ring = (outer, inner, fill) =>
-      '<path d="' + ringPath(outer, inner) + '" fill-rule="evenodd" fill="' + fill + '"/>';
+  function box(r, fill, extra) {
+    return '<rect x="' + x(r[0]) + '" y="' + y(r[1]) + '" width="' + m(r[2]) + '" height="' + m(r[3]) +
+      '" fill="' + fill + '"' + (extra || '') + '/>';
+  }
+  function ring(outer, inner, fill, extra) {
+    return '<path d="' + ringPath(outer, inner) + '" fill-rule="evenodd" fill="' + fill + '"' +
+      (extra || '') + '/>';
+  }
 
+  /** דפוסי הרצפה והצללת הקירות. הכול מצויר, ולכן כל קו יושב במקום שהגיאומטריה
+      קובעת. ניסיון להוציא רקע ממודל תמונה נכשל: הוא הרחיב את הדירה ב-28% לרוחב
+      וב-45% לגובה, הזיז קירות פנימיים והשמיט את קיר החוץ הדרומי. */
+  function defs() {
+    const plank = (id, a, b, c) =>
+      '<pattern id="' + id + '" width="' + m(1.9) + '" height="' + m(0.22) + '" patternUnits="userSpaceOnUse">' +
+        '<rect width="' + m(1.9) + '" height="' + m(0.22) + '" fill="' + a + '"/>' +
+        '<rect width="' + m(1.9) + '" height="1.6" y="' + (m(0.22) - 1.6) + '" fill="' + b + '"/>' +
+        '<rect width="2" height="' + m(0.22) + '" x="' + m(1.18) + '" fill="' + c + '"/>' +
+      '</pattern>';
+    const tile = (id, a, b, s) =>
+      '<pattern id="' + id + '" width="' + m(s) + '" height="' + m(s) + '" patternUnits="userSpaceOnUse">' +
+        '<rect width="' + m(s) + '" height="' + m(s) + '" fill="' + a + '"/>' +
+        '<rect width="' + m(s) + '" height="1.6" fill="' + b + '"/>' +
+        '<rect width="1.6" height="' + m(s) + '" fill="' + b + '"/>' +
+      '</pattern>';
+    return '<defs>' +
+      plank('wood', '#d9c3a2', '#c6ab85', '#cfb693') +
+      tile('tiles', '#cfcabd', '#b9b3a4', 0.6) +
+      tile('outdoor', '#ded7c6', '#c8c0ad', 0.5) +
+      '<pattern id="concrete" width="' + m(1.2) + '" height="' + m(1.2) + '" patternUnits="userSpaceOnUse">' +
+        '<rect width="' + m(1.2) + '" height="' + m(1.2) + '" fill="#b8b4ac"/>' +
+        '<circle cx="18" cy="26" r="2.6" fill="#a9a59c"/><circle cx="52" cy="12" r="2" fill="#aeaaa1"/>' +
+        '<circle cx="66" cy="58" r="3" fill="#a9a59c"/><circle cx="30" cy="70" r="2.2" fill="#aeaaa1"/>' +
+      '</pattern>' +
+      '<filter id="drop" x="-20%" y="-20%" width="150%" height="150%">' +
+        '<feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#2a2118" flood-opacity="0.35"/>' +
+      '</filter>' +
+      '<filter id="inner" x="-20%" y="-20%" width="150%" height="150%">' +
+        '<feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#2a2118" flood-opacity="0.30"/>' +
+      '</filter>' +
+    '</defs>';
+  }
+
+  /** ריהוט במבט על. צורות פשוטות, רק כדי שכל חלל ייקרא למה הוא משמש. */
+  function furniture() {
+    const g = (s) => '<g fill="#b9ad97" stroke="#8d8471" stroke-width="2">' + s + '</g>';
     let out = '';
-    out += box(ENVELOPE, "#efe7d6");                                  // הרצפה
-    out += ring(OUTER, [0.20, 0.20, 10.3, 9.2], "#9a8f7c");           // 20 ס"מ חיצוניים, בידוד וחיפוי
-    out += ring([0.20, 0.20, 10.3, 9.2], ENVELOPE, "#5b5346");        // 25 ס"מ פנימיים, הבלוק הנושא
-    out += ring([6.15, 6.15, 4.30, 3.20], [6.45, 6.45, 3.70, 2.60], "#3f3a31"); // בטון הממ"ד
-    for (const p of PARTITIONS) out += box(p, "#5b5346");             // מחיצות פנים
+    // סלון: שטיח, ספה ושולחן אוכל
+    out += box([0.7, 0.8, 2.6, 1.9], "#c9bda6", ' opacity="0.75"');
+    out += g(box([0.75, 0.95, 0.30, 1.60], "#cdbfa6") +   // גב הספה
+             box([1.05, 1.05, 0.62, 1.40], "#d8ccb6") +    // מושב
+             box([1.05, 0.95, 0.62, 0.12], "#c3b499") +
+             box([1.05, 2.33, 0.62, 0.12], "#c3b499"));
+    out += g(box([3.6, 1.2, 1.7, 0.95], "#cbb392") +
+             box([3.8, 0.85, 0.45, 0.3], "#cbb392") + box([4.6, 0.85, 0.45, 0.3], "#cbb392") +
+             box([3.8, 2.2, 0.45, 0.3], "#cbb392") + box([4.6, 2.2, 0.45, 0.3], "#cbb392"));
+    // מטבח: משטח לאורך הקיר העליון
+    out += g(box([0.3, 0.3, 4.2, 0.62], "#ded2bb") + box([2.1, 0.36, 0.5, 0.5], "#b6c2c4"));
+    // חדר שינה 1: מיטה זוגית
+    out += g(box([7.6, 0.55, 1.75, 2.0], "#d6c8b0") + box([7.6, 0.55, 1.75, 0.45], "#c4b599"));
+    // חדר שינה 2: מיטת יחיד ושולחן עבודה
+    out += g(box([6.8, 3.95, 1.1, 1.9], "#d6c8b0") + box([6.8, 3.95, 1.1, 0.4], "#c4b599") +
+             box([9.0, 3.95, 1.35, 0.6], "#cbb392"));
+    // חדר רחצה: מקלחת, אסלה וכיור
+    out += g(box([3.65, 5.25, 0.9, 0.9], "#c3ccce") + box([4.8, 5.3, 0.4, 0.62], "#dcdcd8") +
+             box([5.5, 5.3, 0.55, 0.42], "#dcdcd8"));
+    // מרפסת: שני כיסאות
+    out += g(box([0.75, 7.8, 0.55, 0.55], "#cdbfa6") + box([1.7, 7.8, 0.55, 0.55], "#cdbfa6"));
+    // פיר מדרגות: שלחי מדרגות
+    for (let i = 0; i < 6; i++) {
+      out += box([3.65, 7.62 + i * 0.28, 2.4, 0.2], "#a8a49b");
+    }
+    return out;
+  }
+
+  function baseLayer() {
+    let out = defs();
+    // רצפות
+    out += box(ENVELOPE, "url(#wood)");
+    out += box(ZONES.bath.rect, "url(#tiles)");
+    out += box(ZONES.hall.rect, "url(#tiles)");
+    out += box(ZONES.balcony.rect, "url(#outdoor)");
+    out += box(ZONES.shaft.rect, "url(#concrete)");
+    out += box(ZONES.mamad.rect, "url(#concrete)");
+    out += furniture();
+    // קירות, מהחוץ פנימה, עם הצללה שנותנת את תחושת העובי
+    out += ring(OUTER, [0.20, 0.20, 10.3, 9.2], "#a1978a", ' filter="url(#drop)"');
+    out += ring([0.20, 0.20, 10.3, 9.2], ENVELOPE, "#efe9dd", ' filter="url(#inner)"');
+    out += ring([6.15, 6.15, 4.30, 3.20], [6.45, 6.45, 3.70, 2.60], "#8d8a84", ' filter="url(#inner)"');
+    for (const p of PARTITIONS) out += box(p, "#efe9dd", ' filter="url(#inner)"');
+    // קו עליון בהיר על ראש הקירות, מה שנותן את הרושם התלת-מימדי
+    out += ring([0.20, 0.20, 10.3, 9.2], ENVELOPE, "none",
+      ' stroke="#fffdf8" stroke-width="2" stroke-opacity="0.85"');
     return out;
   }
 
@@ -124,7 +204,8 @@ window.flat = (function () {
 
   function render(active, on) {
     const act = new Set(active), sel = new Set(on);
-    let out = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="flat" role="img" ' +
+    // הבד עצמו ריבועי, אבל התצוגה נחתכת סביב הדירה כדי שלא יישאר שוליים ריקים
+    let out = '<svg viewBox="20 74 901 824" class="flat" role="img" ' +
       'aria-label="תוכנית דירה עם חדרים, ממד, מרפסת ופיר מדרגות">';
     out += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#f7f3ea"/>';
     // רקע: התמונה התלת-מימדית אם הוטענה, ואחרת שכבת הבסיס הווקטורית. שתיהן
@@ -134,18 +215,12 @@ window.flat = (function () {
       : baseLayer();
 
     // כל האזורים ברקע, כדי שהדירה תמיד תיראה שלמה
-    if (!bg) {
-      for (const id of Object.keys(ZONES)) {
-        if (act.has(id)) continue;
-        out += '<path d="' + shapeOf(id) + '" fill-rule="evenodd" fill="' + FILL.mute +
-          '" stroke="#cbc2b0" stroke-width="1.5"/>';
-      }
-    }
+    // אין שכבת השתקה: הרקע המצויר הוא מה שרואים, והאזורים הפעילים מסומנים מעליו.
     // האזורים הפעילים, מעל
     for (const id of active) {
       const isOn = sel.has(id);
-      const fill = isOn ? FILL.on : (bg ? "#ffffff" : FILL.off);
-      const op = isOn ? (bg ? 0.62 : 0.85) : (bg ? 0.12 : 1);
+      const fill = isOn ? FILL.on : "#ffffff";
+      const op = isOn ? 0.55 : 0.18;
       out += '<path class="zone" data-zone="' + id + '" d="' + shapeOf(id) + '" fill-rule="evenodd" ' +
         'fill="' + fill + '" fill-opacity="' + op + '" stroke="#2a2118" stroke-width="3"/>';
     }
