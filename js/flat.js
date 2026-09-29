@@ -1,256 +1,118 @@
 // הדירה של "מה נספר", שיעור 17.
 //
-// דירה אחת, שבעה סבבים. בכל סבב מוארים חלקים אחרים שלה, והשאלה היא מה נכנס
-// למניין השטח. הכול SVG: המידות הן התשובה, ומודל תמונה לא מדייק במידות.
+// **הסדר: קודם התמונה, ואחריה הגיאומטריה.** ניסינו קודם את ההפך, לשלוח למודל את
+// התוכנית המדויקת שלנו ולבקש רק לצבוע אותה מחדש, והוא החזיר דירה רחבה ב-28%
+// וגבוהה ב-45%, עם קיר פנימי שזז וקיר חוץ שנעלם. מודל תמונה מתכנן מחדש. לכן
+// התמונה היא המקור, והמלבנים כאן נמדדו עליה בפיקסלים (tools/rects.json).
 //
-// גיאומטריה: 1 מטר = 70 פיקסלים, בד ריבועי של 1024. שלושה סוגי קיר בתוכנית,
-// ולכל אחד עובי אחר: קיר חוץ 45 ס"מ (25 נספרים ו-20 פטורים), קירות בטון של
-// הממ"ד 30 ס"מ, ומחיצות פנים 10 ס"מ. הריבוע הוא כדי שתמונת הרקע התלת-מימדית
-// תיווצר באותו יחס ותשב על אותן קואורדינטות בדיוק.
+// **הכיול**: הסקאלה נקבעה כך ששטח הממ"ד יוצא 9.0 מ"ר בדיוק, המינימום שתקנות
+// פיקוד העורף דורשות. מכאן נגזר הכול: 65.30 פיקסלים למטר, קיר חוץ 49 ס"מ, ודירה
+// של 9.31 על 8.71 מ' מבפנים. אין כאן מספר שנכתב ביד.
 
 console.log("[flat] טוען: תוכנית הדירה");
 
 window.flat = (function () {
-  const PX = 70;                 // פיקסלים למטר
-  const OX = 96, OY = 150;       // ראשית הדירה על הבד
-  const W = 1024, H = 1024;
+  const W = 1024, H = 1024;          // גודל התמונה, וגם מערכת הצירים
+  const PXM = 65.30;                 // פיקסלים למטר, מהכיול
+  const IMG = 'img/plan.webp';
 
-  const m = (v) => v * PX;
-  const x = (v) => OX + m(v);
-  const y = (v) => OY + m(v);
+  const INNER = [181, 215, 789, 784];   // פני הקירות מבפנים, כלומר תחילת הרצפה
+  const OUTER = [137, 184, 811, 814];   // פני קיר החוץ מבחוץ
+  const m = (v) => v * PXM;
 
-  // ---------- החדרים, במטרים, ביחס לפינת הדירה ----------
-  // כל אזור הוא מלבן: [x, y, רוחב, גובה] במטרים, ושטחו נגזר מהם.
+  /** טבעת בין שני מלבנים [x0,y0,x1,y1]. */
+  function ringPath(o, i) {
+    return 'M' + o[0] + ' ' + o[1] + ' H' + o[2] + ' V' + o[3] + ' H' + o[0] + ' Z ' +
+           'M' + i[0] + ' ' + i[1] + ' H' + i[2] + ' V' + i[3] + ' H' + i[0] + ' Z';
+  }
+  const grow = (r, d) => [r[0] - d, r[1] - d, r[2] + d, r[3] + d];
+
+  // 25 הס"מ הראשונים של קיר החוץ נספרים, והשאר עד 50 פטור. הטבעות נגזרות
+  // מהמלבן הפנימי ומהסקאלה, ולכן הן תואמות בדיוק את מה שהתקנה אומרת.
+  const BAND25 = grow(INNER, m(0.25));
+  const SKIN   = grow(OUTER, m(0.90));
+
   const ZONES = {
-    salon:    { rect: [0.25, 0.25, 6.10, 4.70], label: "סלון ומטבח",      kind: "main" },
-    bed1:     { rect: [6.45, 0.25, 4.00, 3.30], label: "חדר שינה",        kind: "main" },
-    bed2:     { rect: [6.45, 3.65, 4.00, 2.50], label: "חדר שינה 2",      kind: "main" },
-    bath:     { rect: [3.45, 5.05, 2.80, 2.30], label: "חדר רחצה",        kind: "main" },
-    hall:     { rect: [0.25, 5.05, 3.10, 2.30], label: "מסדרון",          kind: "main" },
-    mamad:    { rect: [6.45, 6.45, 3.70, 2.60], label: 'ממ"ד',            kind: "service" },
-    mamadW:   { rect: [6.15, 6.15, 4.30, 3.20], label: 'קירות הממ"ד, 30 ס"מ בטון',
-                ring: [6.45, 6.45, 3.70, 2.60], kind: "service" },
-    shaft:    { rect: [3.45, 7.45, 2.80, 1.90], label: "פיר מדרגות צמוד", kind: "opening" },
-    balcony:  { rect: [0.25, 7.45, 3.10, 1.90], label: "מרפסת",           kind: "balcony" },
-    shade:    { rect: [0.25, 7.45, 3.10, 1.90], label: "מצללה מעל המרפסת", kind: "shade" },
-    wall25:   { ringOf: "envelope", t: 0.25,   label: "25 ס\"מ מעובי קיר החוץ", kind: "wall" },
-    wall20:   { ringOf: "outer",   t: 0.20,    label: "20 הס\"מ הנותרים בקיר",  kind: "wall" },
-    skin:     { ringOf: "skin",    t: 0.80,    label: "מעטפת כפולה, מרווח 80 ס\"מ", kind: "skin" },
+    salon:   { rect: [181, 215, 410, 784], label: "סלון ומטבח" },
+    bed1:    { rect: [426, 215, 616, 474], label: "חדר שינה" },
+    bed2:    { rect: [624, 215, 789, 474], label: "חדר שינה 2" },
+    hall:    { rect: [425, 489, 789, 564], label: "מסדרון" },
+    bath:    { rect: [425, 582, 554, 784], label: "חדר רחצה" },
+    mamad:   { rect: [590, 593, 792, 783], label: 'ממ"ד' },
+    mamadW:  { rect: [563, 568, 811, 801], ring: [590, 593, 792, 783], label: 'קירות הבטון של הממ"ד' },
+    shaft:   { rect: [820, 215, 960, 577], label: "פיר מדרגות צמוד" },
+    balcony: { rect: [158, 814, 562, 908], label: "מרפסת" },
+    shade:   { rect: [158, 814, 562, 908], label: "מצללה מעל המרפסת" },
+    wall25:  { ring2: [BAND25, INNER], label: '25 ס"מ מעובי קיר החוץ' },
+    wall20:  { ring2: [OUTER, BAND25], label: "שאר עובי קיר החוץ" },
+    skin:    { ring2: [SKIN, OUTER], label: 'מעטפת כפולה, מרווח 90 ס"מ' },
   };
 
-  // מחיצות הפנים, 10 ס"מ. הן רקע ואינן נספרות בנפרד באף סבב, אבל הן מה שהופך
-  // את התוכנית לקריאה ומראה שלא כל קיר הוא אותו קיר.
-  const PARTITIONS = [
-    [6.35, 0.25, 0.10, 5.90],   // בין הסלון לחדרי השינה
-    [6.45, 3.55, 4.00, 0.10],   // בין שני חדרי השינה
-    [0.25, 4.95, 6.10, 0.10],   // בין הסלון למסדרון ולחדר הרחצה
-    [3.35, 5.05, 0.10, 2.30],   // בין המסדרון לחדר הרחצה
-    [0.25, 7.35, 6.00, 0.10],   // בין החלק הדרומי למרפסת ולפיר
-    [3.35, 7.45, 0.10, 1.90],   // בין המרפסת לפיר
-  ];
-
-  // המעטפת: קו פנים הדירה, קו החוץ, וקו המעטפת הכפולה
-  const ENVELOPE = [0.25, 0.25, 10.2, 9.1];   // פנים הקירות
-  const OUTER    = [0.00, 0.00, 10.7, 9.6];   // פני החוץ של קיר 45 ס"מ
-  const SKIN     = [-0.80, -0.80, 12.3, 11.2];
-
-  function ringPath(outer, inner) {
-    const [ox, oy, ow, oh] = outer, [ix, iy, iw, ih] = inner;
-    return 'M' + x(ox) + ' ' + y(oy) + ' h' + m(ow) + ' v' + m(oh) + ' h' + (-m(ow)) + ' z ' +
-           'M' + x(ix) + ' ' + y(iy) + ' h' + m(iw) + ' v' + m(ih) + ' h' + (-m(iw)) + ' z';
-  }
-
-  /** הצורה של אזור: מלבן, טבעת סביב הדירה, או טבעת סביב חלל פנימי. */
   function shapeOf(id) {
     const z = ZONES[id];
-    if (z.ringOf === 'envelope') return ringPath([0.10, 0.10, 10.5, 9.4], ENVELOPE);
-    if (z.ringOf === 'outer') return ringPath(OUTER, [0.10, 0.10, 10.5, 9.4]);
-    if (z.ringOf === 'skin') return ringPath(SKIN, OUTER);
+    if (z.ring2) return ringPath(z.ring2[0], z.ring2[1]);
     if (z.ring) return ringPath(z.rect, z.ring);
-    const [a, b, c, d] = z.rect;
-    return 'M' + x(a) + ' ' + y(b) + ' h' + m(c) + ' v' + m(d) + ' h' + (-m(c)) + ' z';
+    const r = z.rect;
+    return 'M' + r[0] + ' ' + r[1] + ' H' + r[2] + ' V' + r[3] + ' H' + r[0] + ' Z';
   }
 
-  /** שטח האזור במטרים רבועים, מעוגל לעשירית. */
+  /** שטח במטרים רבועים, מחושב מהפיקסלים ומהסקאלה. */
   function areaOf(id) {
     const z = ZONES[id];
-    const box = (r) => r[2] * r[3];
-    let a;
-    if (z.ringOf === 'envelope') a = box([0, 0, 10.5, 9.4]) - box(ENVELOPE);
-    else if (z.ringOf === 'outer') a = box(OUTER) - box([0, 0, 10.5, 9.4]);
-    else if (z.ringOf === 'skin') a = box(SKIN) - box(OUTER);
-    else if (z.ring) a = box(z.rect) - box(z.ring);
-    else a = box(z.rect);
-    return Math.round(a * 10) / 10;
+    const box = (r) => (r[2] - r[0]) * (r[3] - r[1]);
+    let px;
+    if (z.ring2) px = box(z.ring2[0]) - box(z.ring2[1]);
+    else if (z.ring) px = box(z.rect) - box(z.ring);
+    else px = box(z.rect);
+    return Math.round((px / (PXM * PXM)) * 10) / 10;
   }
 
-  /** שכבת הבסיס: רצפה, שלושת סוגי הקיר, והמחיצות.
-      זו גם התמונה שנשלחת למודל כדי שיהפוך אותה לתלת מימד, ולכן הגיאומטריה
-      כאן זהה בדיוק לזו של אזורי הסימון. */
-  function box(r, fill, extra) {
-    return '<rect x="' + x(r[0]) + '" y="' + y(r[1]) + '" width="' + m(r[2]) + '" height="' + m(r[3]) +
-      '" fill="' + fill + '"' + (extra || '') + '/>';
-  }
-  function ring(outer, inner, fill, extra) {
-    return '<path d="' + ringPath(outer, inner) + '" fill-rule="evenodd" fill="' + fill + '"' +
-      (extra || '') + '/>';
+  /** עובי קיר החוץ בסנטימטרים, כפי שנמדד על התמונה. */
+  function wallCm() {
+    const t = ((INNER[0] - OUTER[0]) + (INNER[1] - OUTER[1]) +
+               (OUTER[2] - INNER[2]) + (OUTER[3] - INNER[3])) / 4;
+    return Math.round(t / PXM * 100);
   }
 
-  /** דפוסי הרצפה והצללת הקירות. הכול מצויר, ולכן כל קו יושב במקום שהגיאומטריה
-      קובעת. ניסיון להוציא רקע ממודל תמונה נכשל: הוא הרחיב את הדירה ב-28% לרוחב
-      וב-45% לגובה, הזיז קירות פנימיים והשמיט את קיר החוץ הדרומי. */
-  function defs() {
-    const plank = (id, a, b, c) =>
-      '<pattern id="' + id + '" width="' + m(1.9) + '" height="' + m(0.22) + '" patternUnits="userSpaceOnUse">' +
-        '<rect width="' + m(1.9) + '" height="' + m(0.22) + '" fill="' + a + '"/>' +
-        '<rect width="' + m(1.9) + '" height="1.6" y="' + (m(0.22) - 1.6) + '" fill="' + b + '"/>' +
-        '<rect width="2" height="' + m(0.22) + '" x="' + m(1.18) + '" fill="' + c + '"/>' +
-      '</pattern>';
-    const tile = (id, a, b, s) =>
-      '<pattern id="' + id + '" width="' + m(s) + '" height="' + m(s) + '" patternUnits="userSpaceOnUse">' +
-        '<rect width="' + m(s) + '" height="' + m(s) + '" fill="' + a + '"/>' +
-        '<rect width="' + m(s) + '" height="1.6" fill="' + b + '"/>' +
-        '<rect width="1.6" height="' + m(s) + '" fill="' + b + '"/>' +
-      '</pattern>';
-    return '<defs>' +
-      plank('wood', '#d9c3a2', '#c6ab85', '#cfb693') +
-      tile('tiles', '#cfcabd', '#b9b3a4', 0.6) +
-      tile('outdoor', '#ded7c6', '#c8c0ad', 0.5) +
-      '<pattern id="concrete" width="' + m(1.2) + '" height="' + m(1.2) + '" patternUnits="userSpaceOnUse">' +
-        '<rect width="' + m(1.2) + '" height="' + m(1.2) + '" fill="#b8b4ac"/>' +
-        '<circle cx="18" cy="26" r="2.6" fill="#a9a59c"/><circle cx="52" cy="12" r="2" fill="#aeaaa1"/>' +
-        '<circle cx="66" cy="58" r="3" fill="#a9a59c"/><circle cx="30" cy="70" r="2.2" fill="#aeaaa1"/>' +
-      '</pattern>' +
-      '<filter id="drop" x="-20%" y="-20%" width="150%" height="150%">' +
-        '<feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#2a2118" flood-opacity="0.35"/>' +
-      '</filter>' +
-      '<filter id="inner" x="-20%" y="-20%" width="150%" height="150%">' +
-        '<feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#2a2118" flood-opacity="0.30"/>' +
-      '</filter>' +
-    '</defs>';
-  }
-
-  /** ריהוט במבט על. צורות פשוטות, רק כדי שכל חלל ייקרא למה הוא משמש. */
-  function furniture() {
-    const g = (s) => '<g fill="#b9ad97" stroke="#8d8471" stroke-width="2">' + s + '</g>';
-    let out = '';
-    // סלון: שטיח, ספה ושולחן אוכל
-    out += box([0.7, 0.8, 2.6, 1.9], "#c9bda6", ' opacity="0.75"');
-    out += g(box([0.75, 0.95, 0.30, 1.60], "#cdbfa6") +   // גב הספה
-             box([1.05, 1.05, 0.62, 1.40], "#d8ccb6") +    // מושב
-             box([1.05, 0.95, 0.62, 0.12], "#c3b499") +
-             box([1.05, 2.33, 0.62, 0.12], "#c3b499"));
-    out += g(box([3.6, 1.2, 1.7, 0.95], "#cbb392") +
-             box([3.8, 0.85, 0.45, 0.3], "#cbb392") + box([4.6, 0.85, 0.45, 0.3], "#cbb392") +
-             box([3.8, 2.2, 0.45, 0.3], "#cbb392") + box([4.6, 2.2, 0.45, 0.3], "#cbb392"));
-    // מטבח: משטח לאורך הקיר העליון
-    out += g(box([0.3, 0.3, 4.2, 0.62], "#ded2bb") + box([2.1, 0.36, 0.5, 0.5], "#b6c2c4"));
-    // חדר שינה 1: מיטה זוגית
-    out += g(box([7.6, 0.55, 1.75, 2.0], "#d6c8b0") + box([7.6, 0.55, 1.75, 0.45], "#c4b599"));
-    // חדר שינה 2: מיטת יחיד ושולחן עבודה
-    out += g(box([6.8, 3.95, 1.1, 1.9], "#d6c8b0") + box([6.8, 3.95, 1.1, 0.4], "#c4b599") +
-             box([9.0, 3.95, 1.35, 0.6], "#cbb392"));
-    // חדר רחצה: מקלחת, אסלה וכיור
-    out += g(box([3.65, 5.25, 0.9, 0.9], "#c3ccce") + box([4.8, 5.3, 0.4, 0.62], "#dcdcd8") +
-             box([5.5, 5.3, 0.55, 0.42], "#dcdcd8"));
-    // מרפסת: שני כיסאות
-    out += g(box([0.75, 7.8, 0.55, 0.55], "#cdbfa6") + box([1.7, 7.8, 0.55, 0.55], "#cdbfa6"));
-    // פיר מדרגות: שלחי מדרגות
-    for (let i = 0; i < 6; i++) {
-      out += box([3.65, 7.62 + i * 0.28, 2.4, 0.2], "#a8a49b");
-    }
-    return out;
-  }
-
-  function baseLayer() {
-    let out = defs();
-    // רצפות
-    out += box(ENVELOPE, "url(#wood)");
-    out += box(ZONES.bath.rect, "url(#tiles)");
-    out += box(ZONES.hall.rect, "url(#tiles)");
-    out += box(ZONES.balcony.rect, "url(#outdoor)");
-    out += box(ZONES.shaft.rect, "url(#concrete)");
-    out += box(ZONES.mamad.rect, "url(#concrete)");
-    out += furniture();
-    // קירות, מהחוץ פנימה, עם הצללה שנותנת את תחושת העובי
-    out += ring(OUTER, [0.20, 0.20, 10.3, 9.2], "#a1978a", ' filter="url(#drop)"');
-    out += ring([0.20, 0.20, 10.3, 9.2], ENVELOPE, "#efe9dd", ' filter="url(#inner)"');
-    out += ring([6.15, 6.15, 4.30, 3.20], [6.45, 6.45, 3.70, 2.60], "#8d8a84", ' filter="url(#inner)"');
-    for (const p of PARTITIONS) out += box(p, "#efe9dd", ' filter="url(#inner)"');
-    // קו עליון בהיר על ראש הקירות, מה שנותן את הרושם התלת-מימדי
-    out += ring([0.20, 0.20, 10.3, 9.2], ENVELOPE, "none",
-      ' stroke="#fffdf8" stroke-width="2" stroke-opacity="0.85"');
-    return out;
-  }
-
-  const FILL = {
-    on:  "#d98324",
-    off: "#e8e1d3",
-    mute: "#f2ede2",
-  };
+  const AMBER = "#d98324";
 
   /**
-   * מצייר את התוכנית.
-   * active: מזהי האזורים שהסטודנט יכול להקיש עליהם בסבב הזה.
-   * on: אילו מהם מסומנים כנספרים.
+   * התמונה כרקע, ומעליה אזורי הסימון.
+   * active: מה שאפשר להקיש עליו בסבב הזה. on: מה שסומן כנספר.
    */
-  let bg = null;
-  /** מחברים תמונת רקע. אם היא נכשלת בטעינה, נשארים עם השכבה הווקטורית. */
-  function useBackground(src) {
-    const im = new Image();
-    im.onload = () => { bg = src; document.dispatchEvent(new Event('flat:bg')); };
-    im.src = src;
-  }
-
   function render(active, on) {
-    const act = new Set(active), sel = new Set(on);
-    // הבד עצמו ריבועי, אבל התצוגה נחתכת סביב הדירה כדי שלא יישאר שוליים ריקים
-    let out = '<svg viewBox="20 74 901 824" class="flat" role="img" ' +
-      'aria-label="תוכנית דירה עם חדרים, ממד, מרפסת ופיר מדרגות">';
-    out += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#f7f3ea"/>';
-    // רקע: התמונה התלת-מימדית אם הוטענה, ואחרת שכבת הבסיס הווקטורית. שתיהן
-    // באותן קואורדינטות בדיוק, כי התמונה נוצרה מתוך שכבת הבסיס הזו.
-    out += bg
-      ? '<image href="' + bg + '" x="0" y="0" width="' + W + '" height="' + H + '" preserveAspectRatio="none"/>'
-      : baseLayer();
+    const sel = new Set(on);
+    let out = '<svg viewBox="108 158 884 792" class="flat" role="img" ' +
+      'aria-label="תוכנית דירה מלמעלה: סלון ומטבח, שני חדרי שינה, חדר רחצה, ממד, מרפסת ופיר מדרגות">';
+    out += '<image href="' + IMG + '" x="0" y="0" width="' + W + '" height="' + H + '"/>';
 
-    // כל האזורים ברקע, כדי שהדירה תמיד תיראה שלמה
-    // אין שכבת השתקה: הרקע המצויר הוא מה שרואים, והאזורים הפעילים מסומנים מעליו.
-    // האזורים הפעילים, מעל
     for (const id of active) {
       const isOn = sel.has(id);
-      const fill = isOn ? FILL.on : "#ffffff";
-      const op = isOn ? 0.55 : 0.18;
       out += '<path class="zone" data-zone="' + id + '" d="' + shapeOf(id) + '" fill-rule="evenodd" ' +
-        'fill="' + fill + '" fill-opacity="' + op + '" stroke="#2a2118" stroke-width="3"/>';
+        'fill="' + (isOn ? AMBER : "#ffffff") + '" fill-opacity="' + (isOn ? 0.5 : 0.18) + '" ' +
+        'stroke="' + (isOn ? "#8a4f12" : "#2a2118") + '" stroke-width="3"/>';
     }
-    // קו הדירה, תמיד
-    out += '<path d="' + ringPath(OUTER, ENVELOPE) + '" fill-rule="evenodd" fill="none" ' +
-      'stroke="#2a2118" stroke-width="2"/>';
-
-    // תוויות לאזורים הפעילים בלבד, כדי שלא יהיה רעש
     for (const id of active) {
       const z = ZONES[id];
-      const r = z.ring || z.rect;
-      if (!r) continue;
-      const cx = x(r[0] + r[2] / 2), cy = y(r[1] + r[3] / 2);
-      // בחלל גדול נכנס גם השם, בטבעת דקה רק המספר
-      const roomy = (r[2] * r[3]) >= 5 && !z.ringOf;
-      const tspan = (t, dy, size, weight) =>
+      const r = z.ring || z.rect || z.ring2[1];
+      const cx = (r[0] + r[2]) / 2, cy = (r[1] + r[3]) / 2;
+      const roomy = !z.ring2 && !z.ring;
+      const t = (s, dy, size, weight) =>
         '<tspan x="' + cx + '" dy="' + dy + '" font-size="' + size + '" font-weight="' + weight + '">' +
-        t + '</tspan>';
-      out += '<text class="ztag" x="' + cx + '" y="' + (roomy ? cy - 10 : cy) + '" text-anchor="middle" ' +
+        s + '</tspan>';
+      out += '<text class="ztag" x="' + cx + '" y="' + (roomy ? cy - 8 : cy) + '" text-anchor="middle" ' +
         'fill="#2a2118" font-family="Heebo, Arial, sans-serif" direction="rtl" ' +
-        'paint-order="stroke" stroke="#f7f3ea" stroke-width="6">' +
-        (roomy ? tspan(z.label, 0, 23, 700) + tspan(areaOf(id) + ' מ"ר', 30, 26, 900)
-               : tspan(areaOf(id) + ' מ"ר', 0, 26, 900)) +
+        'paint-order="stroke" stroke="#f7f3ea" stroke-width="7" stroke-linejoin="round">' +
+        (roomy ? t(z.label, 0, 21, 700) + t(areaOf(id) + ' מ"ר', 27, 25, 900)
+               : t(areaOf(id) + ' מ"ר', 0, 25, 900)) +
         '</text>';
     }
     out += '</svg>';
     return out;
   }
 
-  return { ZONES, PARTITIONS, render, areaOf, baseLayer, useBackground, W, H };
+  return { ZONES, render, areaOf, wallCm, PXM, W, H };
 })();
 
-console.log("[flat] " + Object.keys(window.flat.ZONES).length + " אזורים בתוכנית");
+console.log("[flat] " + Object.keys(window.flat.ZONES).length + " אזורים, קיר חוץ " +
+  window.flat.wallCm() + ' ס"מ');
