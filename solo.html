@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מה נספר</title>
+<style>
+  :root {
+    --bg: #1f2422; --panel: #2b322e; --panel-2: #354039;
+    --ink: #eef2ec; --dim: #adb8ae; --line: #45514a;
+    --accent: #d98324;
+    --ok: #74bd7f; --ok-bg: #22331f;
+    --bad: #de8a80; --bad-bg: #3a2019;
+    --paper: #f7f3ea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 1.6rem; font-weight: 900; margin: 0 0 4px; }
+  .sub { color: var(--dim); font-size: .92rem; margin: 0 0 18px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px; margin-bottom: 14px;
+  }
+  .panel-title { font-weight: 900; margin: 0 0 10px; font-size: 1.05rem; color: var(--accent); }
+
+  .steps { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .step {
+    width: 30px; height: 30px; border-radius: 6px; display: grid; place-items: center;
+    background: var(--panel-2); border: 1px solid var(--line);
+    font-size: .82rem; font-weight: 700; color: var(--dim);
+  }
+  .step.done-ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+  .step.done-bad { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+  .step.current { border-color: var(--accent); color: var(--accent); }
+
+  .flat { display: block; width: 100%; height: auto; background: var(--paper); border-radius: 8px; }
+  .zone { cursor: pointer; }
+  .zone:hover { fill-opacity: .7; }
+  .ztag { pointer-events: none; }
+
+  .brief { color: var(--dim); font-size: .95rem; margin: 0 0 12px; }
+  .ask { font-weight: 700; margin: 14px 0 8px; }
+
+  .tally {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; margin-top: 12px;
+  }
+  .tally .big { font-size: 1.9rem; font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .tally .lbl { color: var(--dim); font-size: .9rem; }
+
+  .picks { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .picks button {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 14px; font: inherit; font-size: .88rem; color: var(--ink); cursor: pointer;
+  }
+  .picks button.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .picks button:hover:not([disabled]), .picks button:focus-visible { border-color: var(--accent); outline: none; }
+  .picks button[disabled] { cursor: default; opacity: .8; }
+
+  .options { display: grid; gap: 8px; }
+  .opt {
+    text-align: right; background: var(--panel-2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    font: inherit; cursor: pointer;
+  }
+  .opt:hover:not([disabled]), .opt:focus-visible { border-color: var(--accent); outline: none; }
+  .opt[disabled] { cursor: default; }
+  .opt.picked-ok, .opt.was-right { background: var(--ok-bg); border-color: var(--ok); }
+  .opt.picked-bad { background: var(--bad-bg); border-color: var(--bad); }
+
+  .feedback { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .verdict-line { font-weight: 900; margin-bottom: 8px; }
+  .verdict-line.ok { color: var(--ok); }
+  .verdict-line.bad { color: var(--bad); }
+  .why-box { color: var(--dim); font-size: .93rem; white-space: pre-line; }
+  .why-box b { color: var(--ink); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+  .num-card {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
+  }
+  .num-card .n { font-size: 2rem; font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .num-card .t { color: var(--dim); font-size: .88rem; }
+
+  .actions { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  button.action {
+    background: var(--accent); color: #1f2422; border: none; border-radius: 8px;
+    padding: 11px 20px; font: inherit; font-weight: 900; cursor: pointer;
+  }
+  button.action:disabled { opacity: .45; cursor: default; }
+  button.ghost {
+    background: transparent; color: var(--dim); border: 1px solid var(--line);
+    border-radius: 8px; padding: 11px 18px; font: inherit; cursor: pointer;
+  }
+  button.action:focus-visible, button.ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .score { font-size: 2.4rem; font-weight: 900; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>מה נספר</h1>
+  <p class="sub">דירה אחת, שבעה סבבים. בכל סבב מוארים חלקים אחרים שלה, והשאלה היא מה נכנס למניין השטח.</p>
+
+  <div class="steps" id="steps"></div>
+  <div id="stage"></div>
+</div>
+
+<script src="js/flat.js"></script>
+<script src="js/gameData.js"></script>
+<script>
+const STORAGE_KEY = 'maNispar_v1';
+const gd = window.gameData;
+const fl = window.flat;
+const N = gd.ROUNDS.length;
+
+let idx = 0;
+let picks = gd.ROUNDS.map(() => []);   // מה סומן בכל סבב
+let results = [];                      // { correct } לכל סבב, והאחרון לסיום
+let finaleAns = null;
+
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ idx, picks, results, finaleAns })); }
+  catch (e) { /* גלישה פרטית */ }
+}
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (typeof s.idx === 'number') idx = s.idx;
+    if (Array.isArray(s.picks)) picks = s.picks;
+    if (Array.isArray(s.results)) results = s.results;
+    if (s.finaleAns) finaleAns = s.finaleAns;
+  } catch (e) { /* נתונים פגומים */ }
+}
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function md(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'); }
+function sum(ids) { return Math.round(ids.reduce((t, id) => t + fl.areaOf(id), 0) * 10) / 10; }
+
+function same(a, b) {
+  const x = [...a].sort().join('|'), y = [...b].sort().join('|');
+  return x === y;
+}
+
+function renderSteps() {
+  let out = '';
+  for (let i = 0; i < N; i++) {
+    let cls = 'step';
+    if (results[i]) cls += results[i].correct ? ' done-ok' : ' done-bad';
+    if (i === idx) cls += ' current';
+    out += '<div class="' + cls + '">' + (i + 1) + '</div>';
+  }
+  let cls = 'step';
+  if (finaleAns) cls += finaleAns.correct ? ' done-ok' : ' done-bad';
+  if (idx >= N) cls += ' current';
+  out += '<div class="' + cls + '" title="הסיום">★</div>';
+  document.getElementById('steps').innerHTML = out;
+}
+
+/* ---------- סבב רגיל ---------- */
+function roundHtml() {
+  const r = gd.ROUNDS[idx];
+  const on = picks[idx] || [];
+  const res = results[idx];
+  // כל אזור הוא גם שבב לחיץ. טבעת דקה כמו עובי הקיר כמעט בלתי אפשרית להקשה
+  // באצבע, ולכן הרשימה היא הדרך הראשית לסמן, והתשריט הוא הדרך הוויזואלית.
+  const chips = r.active.map((id) =>
+    '<li><button class="' + (on.includes(id) ? 'on' : '') + '" data-zone="' + id + '" ' +
+    (res ? 'disabled' : '') + ' aria-pressed="' + on.includes(id) + '">' +
+    (on.includes(id) ? '✓ ' : '') + esc(fl.ZONES[id].label) + ' · ' + fl.areaOf(id) + ' מ"ר' +
+    '</button></li>').join('');
+
+  const fb = res
+    ? '<div class="feedback">' +
+        '<div class="verdict-line ' + (res.correct ? 'ok' : 'bad') + '">' +
+          (res.correct ? '✔ נכון.' : '✘ לא. הנכון: ' +
+            (r.counts.length ? r.counts.map((id) => esc(fl.ZONES[id].label)).join(', ') : 'שום דבר מאלה')) +
+        '</div><div class="why-box">' + md(r.why) + '</div>' +
+        '<div class="actions"><button class="action" id="next">' +
+          (idx === N - 1 ? 'לסיום' : 'לסבב הבא') + '</button></div>' +
+      '</div>'
+    : '<div class="actions"><button class="action" id="check">בדקו</button>' +
+      '<button class="ghost" id="clear">לנקות סימון</button></div>';
+
+  return '<div class="card">' +
+      '<p class="panel-title">סבב ' + (idx + 1) + ' מתוך ' + N + ': ' + esc(r.title) + '</p>' +
+      '<p class="brief">' + esc(r.brief) + '</p>' +
+      fl.render(r.active, on) +
+      '<p class="ask">' + esc(r.prompt) + '</p>' +
+      '<ul class="picks">' + chips + '</ul>' +
+      '<div class="tally"><span class="big">' + sum(on) + '</span><span class="lbl">מ"ר סומנו מתוך ' +
+        sum(r.active) + ' מ"ר שעל הפרק</span></div>' +
+      fb +
+    '</div>';
+}
+
+/* ---------- הסיום ---------- */
+function finaleHtml() {
+  const f = gd.FINALE;
+  const permit = sum(f.permitZones);
+  const sales = Math.round((permit + sum(f.salesExtra)) * 10) / 10;
+  const opts = f.options.map((t, i) => {
+    let cls = 'opt';
+    if (finaleAns) {
+      if (i === finaleAns.picked) cls += finaleAns.correct ? ' picked-ok' : ' picked-bad';
+      else if (i === f.correct) cls += ' was-right';
+    }
+    return '<button class="' + cls + '" ' + (finaleAns ? 'disabled' : '') + ' data-opt="' + i + '">' +
+      esc(t) + '</button>';
+  }).join('');
+
+  const right = results.filter((r) => r && r.correct).length + (finaleAns && finaleAns.correct ? 1 : 0);
+
+  const fb = finaleAns
+    ? '<div class="feedback">' +
+        '<div class="two">' +
+          '<div class="num-card"><div class="n">' + permit + ' מ"ר</div>' +
+            '<div class="t">השטח להיתר, בחתך 1.20 מ\', בלי 20 ס"מ מכל קיר חוץ</div></div>' +
+          '<div class="num-card"><div class="n">' + sales + ' מ"ר</div>' +
+            '<div class="t">שטח המכר, על פני החוץ של קירות הדירה</div></div>' +
+        '</div>' +
+        '<p class="ask">הפער: ' + Math.round((sales - permit) * 10) / 10 + ' מ"ר על אותה דירה בדיוק.</p>' +
+        '<div class="why-box">' + md(f.why) + '</div>' +
+        '<p class="ask" style="margin-top:16px">סיימתם עם ' + right + ' מתוך ' + (N + 1) + '.</p>' +
+        '<div class="actions"><button class="action" id="again">מהתחלה</button></div>' +
+      '</div>'
+    : '';
+
+  return '<div class="card">' +
+      '<p class="panel-title">הסיום: אותה דירה, שני מספרים</p>' +
+      fl.render(f.permitZones.concat(f.salesExtra), finaleAns ? f.permitZones.concat(f.salesExtra) : f.permitZones) +
+      '<p class="ask">' + esc(f.question) + '</p>' +
+      '<div class="options">' + opts + '</div>' + fb +
+    '</div>';
+}
+
+/* ---------- רינדור ---------- */
+function render() {
+  renderSteps();
+  const el = document.getElementById('stage');
+  el.innerHTML = idx >= N ? finaleHtml() : roundHtml();
+
+  el.querySelectorAll('[data-zone]').forEach((z) => {
+    if (idx >= N || results[idx]) return;
+    z.addEventListener('click', () => {
+      const id = z.dataset.zone;
+      const cur = picks[idx] || [];
+      picks[idx] = cur.includes(id) ? cur.filter((v) => v !== id) : cur.concat([id]);
+      save(); render();
+    });
+  });
+  const check = document.getElementById('check');
+  if (check) check.addEventListener('click', () => {
+    results[idx] = { correct: same(picks[idx] || [], gd.ROUNDS[idx].counts) };
+    save(); render();
+  });
+  const clear = document.getElementById('clear');
+  if (clear) clear.addEventListener('click', () => { picks[idx] = []; save(); render(); });
+  const next = document.getElementById('next');
+  if (next) next.addEventListener('click', () => {
+    idx++; save(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  el.querySelectorAll('.opt:not([disabled])').forEach((b) => {
+    b.addEventListener('click', () => {
+      const i = Number(b.dataset.opt);
+      finaleAns = { picked: i, correct: i === gd.FINALE.correct };
+      save(); render();
+    });
+  });
+  const again = document.getElementById('again');
+  if (again) again.addEventListener('click', () => {
+    idx = 0; picks = gd.ROUNDS.map(() => []); results = []; finaleAns = null;
+    save(); render(); window.scrollTo({ top: 0 });
+  });
+}
+
+load();
+render();
+</script>
+</body>
+</html>
